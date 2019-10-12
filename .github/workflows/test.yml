@@ -1,0 +1,43 @@
+name: Test
+on: [push]
+
+jobs:
+
+    init_flow:
+        name: 'Run MySQL and Postgres on ${{ matrix.os }}'
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, windows-latest, macOS-latest]
+
+        # via https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml
+        services:
+            postgres:
+                image: postgres:10.8
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: postgres
+                ports:
+                # will assign a random free host port
+                - 5432/tcp
+                # needed because the postgres container does not provide a healthcheck
+                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+            mysql:
+                image: mysql:5.7
+                env:
+                    MYSQL_ROOT_PASSWORD: root
+                ports:
+                - 3306
+                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+        steps:
+            - uses: actions/checkout@v1
+            - run: node -v
+              env:
+                # use localhost for the host here because we are running the job on the VM.
+                # If we were running the job on in a container this would be postgres
+                POSTGRES_HOST: localhost
+                POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }} # get randomly assigned published port
+                MYSQL_PORT: ${{ job.services.mysql.ports[3306] }}
